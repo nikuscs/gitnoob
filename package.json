@@ -1,0 +1,34 @@
+{
+  "name": "gitnoob",
+  "version": "1.0.0",
+  "description": "A TypeScript git workflow tool that mimics PhpStorm's git client behavior",
+  "main": "src/index.ts",
+  "bin": {
+    "gitnoob": "src/index.ts"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --compile --outfile bin/gitnoob",
+    "build:binary:linux": "bun build src/index.ts --compile --target=bun-linux-x64 --outfile bin/gitnoob-linux",
+    "build:binary:macos": "bun build src/index.ts --compile --target=bun-darwin-arm64 --outfile bin/gitnoob-macos",
+    "dev": "bun run src/index.ts",
+    "install-global": "bun install -g .",
+    "install": "bun run build && sudo mv bin/gitnoob /usr/local/bin/",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "git",
+    "workflow",
+    "cli",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/bun": "^1.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0"
+  }
+}
