@@ -1,6 +1,14 @@
 #!/usr/bin/env bun
 
-import { CheckoutCommand, PruneCommand, UpdateCommand, ResetHistoryCommand } from './commands/index';
+import { 
+  CheckoutCommand, 
+  PruneCommand, 
+  UpdateCommand, 
+  ResetHistoryCommand,
+  UpdateAllCommand,
+  NukeCommand,
+  MergeFromCommand
+} from './commands/index';
 import type { GitCommand } from './core/types';
 import * as p from '@clack/prompts';
 
@@ -12,7 +20,15 @@ class GitWorkflow {
       ['checkout', new CheckoutCommand()],
       ['prune', new PruneCommand()],
       ['update', new UpdateCommand()],
-      ['reset-history', new ResetHistoryCommand()]
+      ['reset-history', new ResetHistoryCommand()],
+      ['update-all', new UpdateAllCommand()],
+      ['nuke', new NukeCommand()],
+      ['merge-from', new MergeFromCommand()],
+      // Fun aliases for merge-from
+      ['slurp', new MergeFromCommand()],
+      ['absorb', new MergeFromCommand()],
+      ['yoink', new MergeFromCommand()],
+      ['assimilate', new MergeFromCommand()]
     ]);
   }
 
@@ -29,6 +45,14 @@ Commands:
                         --force: Force deletion of unmerged branches
   update [--no-rebase]  Update current branch from remote (rebase by default)
                         --no-rebase: Use merge instead of rebase
+  update-all            Update all local branches from their remotes
+                        --no-rebase: Use merge instead of rebase
+  nuke [--force]        🔥 Destroy ALL local changes in current branch
+                        --force: Allow nuking protected branches
+                        --clear-stashes: Also clear branch stashes
+  merge-from <branch>   Safely merge another branch into current
+                        --rebase: Use rebase instead of merge
+                        Aliases: slurp, absorb, yoink, assimilate
   reset-history         ⚠️  DANGER: Permanently delete ALL git history
   help                  Show this help message
 
@@ -38,6 +62,10 @@ Examples:
   gitnoob prune --force
   gitnoob update
   gitnoob update --no-rebase
+  gitnoob update-all
+  gitnoob nuke
+  gitnoob merge-from feature-branch
+  gitnoob yoink main  # Fun alias for merge-from
   gitnoob reset-history
 
 Features:
