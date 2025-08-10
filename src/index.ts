@@ -7,7 +7,8 @@ import {
   ResetHistoryCommand,
   UpdateAllCommand,
   NukeCommand,
-  MergeFromCommand
+  MergeFromCommand,
+  TimeTravelCommand
 } from './commands/index';
 import type { GitCommand } from './core/types';
 import * as p from '@clack/prompts';
@@ -28,7 +29,8 @@ class GitWorkflow {
       ['slurp', new MergeFromCommand()],
       ['absorb', new MergeFromCommand()],
       ['yoink', new MergeFromCommand()],
-      ['assimilate', new MergeFromCommand()]
+      ['assimilate', new MergeFromCommand()],
+      ['time-travel', new TimeTravelCommand()]
     ]);
   }
 
@@ -53,6 +55,7 @@ Commands:
   merge-from <branch>   Safely merge another branch into current
                         --rebase: Use rebase instead of merge
                         Aliases: slurp, absorb, yoink, assimilate
+  time-travel           🚀 Go back to any commit with automatic revert
   reset-history         ⚠️  DANGER: Permanently delete ALL git history
   help                  Show this help message
 
@@ -66,6 +69,7 @@ Examples:
   gitnoob nuke
   gitnoob merge-from feature-branch
   gitnoob yoink main  # Fun alias for merge-from
+  gitnoob time-travel
   gitnoob reset-history
 
 Features:

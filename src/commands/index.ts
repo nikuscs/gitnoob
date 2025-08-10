@@ -5,3 +5,4 @@ export { ResetHistoryCommand } from './reset-history';
 export { UpdateAllCommand } from './update-all';
 export { NukeCommand } from './nuke';
 export { MergeFromCommand } from './merge-from';
+export { TimeTravelCommand } from './time-travel';
