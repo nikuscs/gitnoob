@@ -181,6 +181,14 @@ export class PatchCommand implements GitCommand {
       }
 
       const baseBranch = options.compare!;
+      
+      // Fetch latest changes to ensure up-to-date comparison
+      p.log.info('Fetching latest changes...');
+      const fetchResult = await this.git.execute('fetch', ['--all']);
+      if (!fetchResult.success) {
+        p.log.warning(`Failed to fetch latest changes: ${fetchResult.stderr}`);
+      }
+      
       p.log.info(`Creating patch from ${baseBranch}..${currentBranch}`);
       
       const result = await this.git.execute('format-patch', ['--stdout', `${baseBranch}..${currentBranch}`]);
@@ -211,6 +219,13 @@ export class PatchCommand implements GitCommand {
         return { success: false, stdout: '', stderr: 'Operation cancelled', exitCode: 1 };
       }
       const baseBranch = selectedBranch;
+
+      // Fetch latest changes to ensure up-to-date comparison
+      p.log.info('Fetching latest changes...');
+      const fetchResult = await this.git.execute('fetch', ['--all']);
+      if (!fetchResult.success) {
+        p.log.warning(`Failed to fetch latest changes: ${fetchResult.stderr}`);
+      }
 
       p.log.info(`Creating patch from ${baseBranch}..${currentBranch}`);
       
