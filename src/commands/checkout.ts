@@ -13,7 +13,7 @@ export class CheckoutCommand implements GitCommand {
   }
 
   private generateStashMessage(fromBranch: string, toBranch: string): string {
-    const timestamp = new Date().toISOString();
+    const timestamp = Date.now(); // Use milliseconds for uniqueness
     return `gitnoob-stash: ${fromBranch} -> ${toBranch} at ${timestamp}`;
   }
 
@@ -61,13 +61,34 @@ export class CheckoutCommand implements GitCommand {
     // Check for uncommitted changes
     const status = await this.git.getStatus();
     let stashMessage = null;
+    let stashRef = null;
 
     if (status.hasUncommittedChanges || status.hasStagedChanges) {
       p.log.info('Uncommitted changes detected, creating stash...');
       stashMessage = this.generateStashMessage(currentBranch, targetBranch);
       
+      // Get stash count before creating new stash
+      const stashListBefore = await this.git.execute('stash', ['list']);
+      const stashCountBefore = stashListBefore.success ? stashListBefore.stdout.split('\n').filter(line => line.trim()).length : 0;
+      
       if (!(await this.git.createStash(stashMessage))) {
         p.log.error('Failed to create stash, aborting checkout');
+        process.exit(1);
+      }
+      
+      // Verify stash was created and get its reference
+      const stashListAfter = await this.git.execute('stash', ['list']);
+      if (stashListAfter.success) {
+        const stashLines = stashListAfter.stdout.split('\n').filter(line => line.trim());
+        if (stashLines.length > stashCountBefore) {
+          // Get the most recent stash (first in list)
+          stashRef = stashLines[0].match(/^(stash@\{\d+\})/)?.[1] || null;
+          p.log.info(`Stash created: ${stashRef}`);
+        }
+      }
+      
+      if (!stashRef) {
+        p.log.error('Failed to verify stash creation, aborting checkout');
         process.exit(1);
       }
     }
@@ -85,11 +106,13 @@ export class CheckoutCommand implements GitCommand {
     
     if (!checkoutSuccess) {
       // Restore stash if checkout failed
-      if (stashMessage) {
+      if (stashRef) {
         p.log.warning('Checkout failed, restoring stash...');
-        const stashRef = await this.git.findStash(stashMessage);
-        if (stashRef) {
-          await this.git.restoreStash(stashRef);
+        const restoreResult = await this.git.restoreStash(stashRef);
+        if (restoreResult.success) {
+          p.log.info('Stash restored successfully');
+        } else {
+          p.log.error(`Failed to restore stash. Manual restore: git stash pop ${stashRef}`);
         }
       }
       p.log.error('Checkout failed');
@@ -107,13 +130,27 @@ export class CheckoutCommand implements GitCommand {
     }
 
     // Restore stash if it was created
-    if (stashMessage) {
+    if (stashRef) {
       p.log.info('Restoring stashed changes...');
-      const stashRef = await this.git.findStash(stashMessage);
-      if (stashRef) {
-        const restoreResult = await this.git.restoreStash(stashRef);
-        if (!restoreResult.success) {
-          p.log.error(`Failed to restore stash. You may need to manually restore with: git stash pop ${stashRef}`);
+      
+      // Check current status before restoring stash
+      const currentStatus = await this.git.getStatus();
+      if (currentStatus.hasChanges) {
+        p.log.warning('Working directory has changes, stash restore might conflict');
+      }
+      
+      const restoreResult = await this.git.restoreStash(stashRef);
+      if (restoreResult.success) {
+        p.log.success('Stashed changes restored successfully');
+      } else {
+        // Check if it's a conflict or other error
+        const errorMsg = restoreResult.stderr || restoreResult.stdout;
+        if (errorMsg.includes('conflict') || errorMsg.includes('CONFLICT')) {
+          p.log.warning('Stash restore conflicts detected!');
+          p.log.info('Resolve conflicts and then run: git stash drop');
+        } else {
+          p.log.error(`Failed to restore stash: ${errorMsg}`);
+          p.log.info(`Manual restore: git stash pop ${stashRef}`);
         }
       }
     }
