@@ -114,8 +114,13 @@ export class PatchCommand implements GitCommand {
 
   private async generatePatchFilename(): Promise<string> {
     const currentBranch = await this.git.getCurrentBranch();
+    // Sanitize branch name to be safe for file names
+    const safeBranchName = (currentBranch || 'patch')
+      .replace(/[\/\\:*?"<>|]/g, '-')  // Replace invalid file name characters with dashes
+      .replace(/-+/g, '-')            // Replace multiple consecutive dashes with single dash
+      .replace(/^-|-$/g, '');         // Remove leading/trailing dashes
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    return `${currentBranch || 'patch'}-${timestamp}.patch`;
+    return `${safeBranchName}-${timestamp}.patch`;
   }
 
   async execute(args: string[]): Promise<GitResult> {
@@ -224,7 +229,16 @@ export class PatchCommand implements GitCommand {
       description = `${baseBranch}..${currentBranch}`;
     }
 
-    const filename = options.output || await this.generatePatchFilename();
+    let filename = options.output || await this.generatePatchFilename();
+    
+    // If user provided output filename, sanitize it to prevent directory traversal issues
+    if (options.output) {
+      // Extract just the filename without any path separators to ensure it stays in current directory
+      filename = filename.split(/[\/\\]/).pop() || 'patch.patch';
+      // Also sanitize invalid characters
+      filename = filename.replace(/[*?"<>|]/g, '-');
+    }
+    
     const fullPath = join(process.cwd(), filename);
 
     try {
