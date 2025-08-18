@@ -2,7 +2,7 @@ import { GitOperations } from '../core/git';
 import type { GitCommand, GitResult } from '../core/types';
 import * as p from '@clack/prompts';
 
-export class NukeCommand implements GitCommand {
+export class ResetCommand implements GitCommand {
   private git: GitOperations;
 
   constructor() {
@@ -12,7 +12,7 @@ export class NukeCommand implements GitCommand {
   async execute(args: string[]): Promise<GitResult> {
     const force = args.includes('--force');
     
-    p.intro('🔥 Nuking all changes in current branch');
+    p.intro('🔄 Resetting all changes in current branch');
 
     // Pre-flight checks
     if (!(await this.git.isGitRepo())) {
@@ -26,11 +26,11 @@ export class NukeCommand implements GitCommand {
       process.exit(1);
     }
 
-    // Safety check - don't nuke main/master without --force
+    // Safety check - don't reset main/master without --force
     const protectedBranches = ['main', 'master', 'develop', 'development'];
     if (protectedBranches.includes(currentBranch) && !force) {
-      p.log.error(`Cannot nuke protected branch '${currentBranch}' without --force flag`);
-      p.log.info('Use: gitnoob nuke --force to override this safety check');
+      p.log.error(`Cannot reset protected branch '${currentBranch}' without --force flag`);
+      p.log.info('Use: gitnoob reset --force to override this safety check');
       process.exit(1);
     }
 
@@ -48,24 +48,24 @@ export class NukeCommand implements GitCommand {
     });
 
     if (p.isCancel(confirm) || !confirm) {
-      p.log.info('Nuke cancelled - your changes are safe');
-      return { success: true, stdout: 'Nuke cancelled', stderr: '', exitCode: 0 };
+      p.log.info('Reset cancelled - your changes are safe');
+      return { success: true, stdout: 'Reset cancelled', stderr: '', exitCode: 0 };
     }
 
     // Double confirmation for protected branches
     if (protectedBranches.includes(currentBranch)) {
       const doubleConfirm = await p.confirm({
-        message: `⚠️  You are about to nuke '${currentBranch}'. Are you REALLY sure?`,
+        message: `⚠️  You are about to reset '${currentBranch}'. Are you REALLY sure?`,
         initialValue: false
       });
 
       if (p.isCancel(doubleConfirm) || !doubleConfirm) {
-        p.log.info('Nuke cancelled - your changes are safe');
-        return { success: true, stdout: 'Nuke cancelled', stderr: '', exitCode: 0 };
+        p.log.info('Reset cancelled - your changes are safe');
+        return { success: true, stdout: 'Reset cancelled', stderr: '', exitCode: 0 };
       }
     }
 
-    p.log.info('Starting nuclear cleanup...');
+    p.log.info('Starting reset process...');
 
     // 1. Abort any rebase in progress
     const rebaseInProgress = await this.git.execute('status', ['--porcelain=v1']).then(
@@ -142,11 +142,11 @@ export class NukeCommand implements GitCommand {
       p.log.success('✨ Branch is now completely clean!');
     }
 
-    p.outro(`Branch '${currentBranch}' has been nuked successfully`);
+    p.outro(`Branch '${currentBranch}' has been reset successfully`);
 
     return { 
       success: true, 
-      stdout: 'All changes destroyed successfully', 
+      stdout: 'All changes reset successfully', 
       stderr: '', 
       exitCode: 0 
     };

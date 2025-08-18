@@ -75,7 +75,14 @@ export class GitOperations {
   }
 
   async createStash(message: string): Promise<boolean> {
-    const result = await this.execute('stash', ['push', '-m', message, '--include-untracked']);
+    // First try with untracked files
+    let result = await this.execute('stash', ['push', '-m', message, '--include-untracked']);
+    if (result.success) {
+      return true;
+    }
+    
+    // If that fails, try without untracked files (they might cause issues)
+    result = await this.execute('stash', ['push', '-m', message]);
     return result.success;
   }
 

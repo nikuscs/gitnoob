@@ -6,9 +6,12 @@ import {
   UpdateCommand, 
   ResetHistoryCommand,
   UpdateAllCommand,
-  NukeCommand,
+  ResetCommand,
   MergeFromCommand,
-  TimeTravelCommand
+  TimeTravelCommand,
+  PatchCommand,
+  ApplyCommand,
+  CherryPickCommand
 } from './commands/index';
 import type { GitCommand } from './core/types';
 import * as p from '@clack/prompts';
@@ -23,14 +26,17 @@ class GitWorkflow {
       ['update', new UpdateCommand()],
       ['reset-history', new ResetHistoryCommand()],
       ['update-all', new UpdateAllCommand()],
-      ['nuke', new NukeCommand()],
+      ['reset', new ResetCommand()],
       ['merge-from', new MergeFromCommand()],
       // Fun aliases for merge-from
       ['slurp', new MergeFromCommand()],
       ['absorb', new MergeFromCommand()],
       ['yoink', new MergeFromCommand()],
       ['assimilate', new MergeFromCommand()],
-      ['time-travel', new TimeTravelCommand()]
+      ['time-travel', new TimeTravelCommand()],
+      ['patch', new PatchCommand()],
+      ['apply', new ApplyCommand()],
+      ['cherry-pick', new CherryPickCommand()]
     ]);
   }
 
@@ -49,14 +55,27 @@ Commands:
                         --no-rebase: Use merge instead of rebase
   update-all            Update all local branches from their remotes
                         --no-rebase: Use merge instead of rebase
-  nuke [--force]        🔥 Destroy ALL local changes in current branch
-                        --force: Allow nuking protected branches
+  reset [--force]       🔄 Discard ALL local changes in current branch
+                        --force: Allow resetting protected branches
                         --clear-stashes: Also clear branch stashes
   merge-from <branch>   Safely merge another branch into current
                         --rebase: Use rebase instead of merge
                         Aliases: slurp, absorb, yoink, assimilate
   time-travel           🚀 Go back to any commit with automatic revert
   reset-history         ⚠️  DANGER: Permanently delete ALL git history
+  patch [mode]          🔧 Create patch file for branch or specific commit
+                        staged: Create patch from staged changes only
+                        commit [hash]: Interactive commit selection or specific hash
+                        compare <branch>: Compare with specific branch
+                        --output <file>: Specify output filename
+  apply [file]          🔧 Apply patch file to current working directory
+                        check: Check if patch can be applied without applying
+                        reverse: Apply patch in reverse (undo)
+                        dry: Dry run to see what would be applied
+  cherry-pick [commit]  🍒 Apply specific commits from other branches
+                        from <branch>: Cherry-pick from specific branch
+                        continue: Continue after resolving conflicts
+                        abort: Abort cherry-pick operation
   help                  Show this help message
 
 Examples:
@@ -66,11 +85,25 @@ Examples:
   gitnoob update
   gitnoob update --no-rebase
   gitnoob update-all
-  gitnoob nuke
+  gitnoob reset
   gitnoob merge-from feature-branch
   gitnoob yoink main  # Fun alias for merge-from
   gitnoob time-travel
   gitnoob reset-history
+  gitnoob patch
+  gitnoob patch staged
+  gitnoob patch commit
+  gitnoob patch commit abc123
+  gitnoob patch compare main
+  gitnoob patch --output my-feature.patch
+  gitnoob apply
+  gitnoob apply my-feature.patch
+  gitnoob apply check
+  gitnoob apply reverse
+  gitnoob cherry-pick
+  gitnoob cherry-pick from feature-branch
+  gitnoob cherry-pick abc123 def456
+  gitnoob cherry-pick continue
 
 Features:
   • Automatic stash management during branch switching
