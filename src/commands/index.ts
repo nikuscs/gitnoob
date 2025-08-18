@@ -8,3 +8,4 @@ export { MergeFromCommand } from './merge-from';
 export { TimeTravelCommand } from './time-travel';
 export { PatchCommand } from './patch';
 export { ApplyCommand } from './apply';
+export { CherryPickCommand } from './cherry-pick';

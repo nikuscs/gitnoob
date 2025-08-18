@@ -10,7 +10,8 @@ import {
   MergeFromCommand,
   TimeTravelCommand,
   PatchCommand,
-  ApplyCommand
+  ApplyCommand,
+  CherryPickCommand
 } from './commands/index';
 import type { GitCommand } from './core/types';
 import * as p from '@clack/prompts';
@@ -34,7 +35,8 @@ class GitWorkflow {
       ['assimilate', new MergeFromCommand()],
       ['time-travel', new TimeTravelCommand()],
       ['patch', new PatchCommand()],
-      ['apply', new ApplyCommand()]
+      ['apply', new ApplyCommand()],
+      ['cherry-pick', new CherryPickCommand()]
     ]);
   }
 
@@ -70,6 +72,10 @@ Commands:
                         check: Check if patch can be applied without applying
                         reverse: Apply patch in reverse (undo)
                         dry: Dry run to see what would be applied
+  cherry-pick [commit]  🍒 Apply specific commits from other branches
+                        from <branch>: Cherry-pick from specific branch
+                        continue: Continue after resolving conflicts
+                        abort: Abort cherry-pick operation
   help                  Show this help message
 
 Examples:
@@ -94,6 +100,10 @@ Examples:
   gitnoob apply my-feature.patch
   gitnoob apply check
   gitnoob apply reverse
+  gitnoob cherry-pick
+  gitnoob cherry-pick from feature-branch
+  gitnoob cherry-pick abc123 def456
+  gitnoob cherry-pick continue
 
 Features:
   • Automatic stash management during branch switching
