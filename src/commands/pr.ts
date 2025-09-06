@@ -132,9 +132,10 @@ export class PRCommand implements GitCommand {
 
     // Push current branch if needed
     p.log.info('Pushing current branch...');
-    const pushResult = await this.git.execute('git', ['push', '-u', 'origin', currentBranch]);
+    const pushResult = await this.git.execute('push', ['-u', 'origin', currentBranch]);
     if (!pushResult.success) {
       p.log.error('Failed to push branch');
+      p.log.error(pushResult.stderr || pushResult.stdout);
       process.exit(1);
     }
 
