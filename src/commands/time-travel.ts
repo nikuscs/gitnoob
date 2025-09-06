@@ -30,7 +30,7 @@ export class TimeTravelCommand implements GitCommand {
       return [];
     }
 
-    return result.stdout.split('\n').map(line => {
+    return result.stdout.split('\n').filter(line => line.trim()).map(line => {
       const [hash, shortHash, subject, author, date, relativeDate] = line.split('|');
       return {
         hash,
@@ -43,10 +43,73 @@ export class TimeTravelCommand implements GitCommand {
     });
   }
 
+  private async selectCommitWithPagination(commits: CommitInfo[], currentCommit: string): Promise<CommitInfo | null> {
+    const pageSize = 8; // Safe number for terminal display
+    let currentPage = 0;
+    const totalPages = Math.ceil(commits.length / pageSize);
+
+    while (true) {
+      const startIdx = currentPage * pageSize;
+      const endIdx = Math.min(startIdx + pageSize, commits.length);
+      const pageCommits = commits.slice(startIdx, endIdx);
+
+      const options = [
+        ...pageCommits.map(commit => ({
+          value: commit,
+          label: this.formatCommitForDisplay(commit),
+          hint: commit.hash === currentCommit ? '(current)' : undefined
+        }))
+      ];
+
+      // Add navigation options
+      if (totalPages > 1) {
+        options.push({ value: 'nav-separator', label: '─'.repeat(50), hint: undefined });
+        
+        if (currentPage > 0) {
+          options.push({ value: 'prev-page', label: '← Previous page', hint: undefined });
+        }
+        if (currentPage < totalPages - 1) {
+          options.push({ value: 'next-page', label: '→ Next page', hint: undefined });
+        }
+        
+        options.push({ 
+          value: 'page-info', 
+          label: `Page ${currentPage + 1} of ${totalPages} (${commits.length} total commits)`, 
+          hint: undefined 
+        });
+      }
+
+      const selected = await p.select({
+        message: `Select a commit to travel to:`,
+        options: options.filter(opt => opt.value !== 'nav-separator' && opt.value !== 'page-info')
+      }) as CommitInfo | string | symbol;
+
+      if (p.isCancel(selected)) {
+        return null;
+      }
+
+      if (typeof selected === 'string') {
+        if (selected === 'prev-page') {
+          currentPage = Math.max(0, currentPage - 1);
+          continue;
+        }
+        if (selected === 'next-page') {
+          currentPage = Math.min(totalPages - 1, currentPage + 1);
+          continue;
+        }
+      }
+
+      // If we get here, it's a commit selection
+      if (typeof selected === 'object' && 'hash' in selected) {
+        return selected as CommitInfo;
+      }
+    }
+  }
+
   private formatCommitForDisplay(commit: CommitInfo): string {
     // Truncate subject if too long
     const maxSubjectLength = 60;
-    const subject = commit.subject.length > maxSubjectLength 
+    const subject = commit.subject.length > maxSubjectLength
       ? commit.subject.substring(0, maxSubjectLength - 3) + '...'
       : commit.subject;
 
@@ -93,7 +156,7 @@ export class TimeTravelCommand implements GitCommand {
     // Get commit history
     p.log.info('Loading commit history...');
     const commits = await this.getCommitHistory();
-    
+
     if (commits.length === 0) {
       p.log.error('No commits found in history');
       process.exit(1);
@@ -105,22 +168,15 @@ export class TimeTravelCommand implements GitCommand {
       p.log.info(`Current position: ${this.formatCommitForDisplay(commits[currentPosition])}`);
     }
 
-    // Let user select a commit
-    const selectedCommit = await p.select({
-      message: 'Select a commit to travel to:',
-      options: commits.map(commit => ({
-        value: commit,
-        label: this.formatCommitForDisplay(commit),
-        hint: commit.hash === currentCommit ? '(current)' : undefined
-      }))
-    }) as CommitInfo | symbol;
+    // Let user select a commit with pagination
+    const selectedCommit = await this.selectCommitWithPagination(commits, currentCommit || '');
 
-    if (p.isCancel(selectedCommit)) {
+    if (!selectedCommit) {
       p.cancel('Time travel cancelled');
       process.exit(0);
     }
 
-    const commit = selectedCommit as CommitInfo;
+    const commit = selectedCommit;
 
     // Check if selected commit is current
     if (commit.hash === currentCommit) {
@@ -181,7 +237,7 @@ export class TimeTravelCommand implements GitCommand {
     if (tagResult.success) {
       p.log.info(`Created backup tag: ${backupTag}`);
     }
-    
+
     // First, save current HEAD for the commit message
     const currentShortHash = commits[currentPosition]?.shortHash || 'HEAD';
 
@@ -240,11 +296,11 @@ export class TimeTravelCommand implements GitCommand {
       p.log.info(`Clean up backup tag when done: git tag -d ${backupTag}`);
     }
 
-    return { 
-      success: true, 
-      stdout: `Successfully traveled to ${commit.shortHash}`, 
-      stderr: '', 
-      exitCode: 0 
+    return {
+      success: true,
+      stdout: `Successfully traveled to ${commit.shortHash}`,
+      stderr: '',
+      exitCode: 0
     };
   }
 }

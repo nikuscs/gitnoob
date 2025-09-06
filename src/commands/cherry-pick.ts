@@ -29,7 +29,7 @@ export class CherryPickCommand implements GitCommand {
 
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
-      
+
       if (arg === 'continue') {
         result.continue = true;
       } else if (arg === 'abort') {
@@ -44,7 +44,7 @@ export class CherryPickCommand implements GitCommand {
     return result;
   }
 
-  private async getCommitsFromBranch(branch: string, limit: number = 20): Promise<CommitInfo[]> {
+  private async getCommitsFromBranch(branch: string, limit: number = 50): Promise<CommitInfo[]> {
     const result = await this.git.execute('log', [
       `--max-count=${limit}`,
       '--pretty=format:%H|%h|%s|%an|%ai|%ar',
@@ -56,7 +56,7 @@ export class CherryPickCommand implements GitCommand {
       return [];
     }
 
-    return result.stdout.split('\n').map(line => {
+    return result.stdout.split('\n').filter(line => line.trim()).map(line => {
       const [hash, shortHash, subject, author, date, relativeDate] = line.split('|');
       return {
         hash,
@@ -73,33 +73,96 @@ export class CherryPickCommand implements GitCommand {
 
   private formatCommitForDisplay(commit: CommitInfo): string {
     const maxSubjectLength = 50;
-    const subject = commit.subject.length > maxSubjectLength 
+    const subject = commit.subject.length > maxSubjectLength
       ? commit.subject.substring(0, maxSubjectLength - 3) + '...'
       : commit.subject;
 
     return `${commit.shortHash} - ${subject} (${commit.relativeDate}) [${commit.branch}]`;
   }
 
-  private async selectCommits(commits: CommitInfo[]): Promise<CommitInfo[]> {
+  private async selectCommitsWithPagination(commits: CommitInfo[]): Promise<CommitInfo[]> {
     if (commits.length === 0) {
       p.log.error('No commits available for cherry-picking');
       return [];
     }
 
-    const multiSelect = await p.multiselect({
-      message: 'Select commits to cherry-pick (space to select, enter to confirm):',
-      options: commits.map(commit => ({
-        value: commit,
-        label: this.formatCommitForDisplay(commit)
-      })),
-      required: true
-    }) as CommitInfo[] | symbol;
+    const pageSize = 8; // Safe number for terminal display
+    let currentPage = 0;
+    const totalPages = Math.ceil(commits.length / pageSize);
+    const selectedCommits: CommitInfo[] = [];
 
-    if (p.isCancel(multiSelect)) {
-      return [];
+    while (true) {
+      const startIdx = currentPage * pageSize;
+      const endIdx = Math.min(startIdx + pageSize, commits.length);
+      const pageCommits = commits.slice(startIdx, endIdx);
+
+      const options = [
+        ...pageCommits.map(commit => ({
+          value: commit.hash,
+          label: this.formatCommitForDisplay(commit),
+          hint: selectedCommits.some(s => s.hash === commit.hash) ? '✓ selected' : undefined
+        }))
+      ];
+
+      // Add navigation and action options
+      if (totalPages > 1) {
+        options.push({ value: 'nav-separator', label: '─'.repeat(50), hint: undefined });
+        
+        if (currentPage > 0) {
+          options.push({ value: 'prev-page', label: '← Previous page', hint: undefined });
+        }
+        if (currentPage < totalPages - 1) {
+          options.push({ value: 'next-page', label: '→ Next page', hint: undefined });
+        }
+      }
+
+      if (selectedCommits.length > 0) {
+        options.push({ value: 'confirm-selection', label: `✅ Continue with ${selectedCommits.length} selected commits`, hint: undefined });
+      }
+      
+      options.push({ value: 'cancel', label: '❌ Cancel', hint: undefined });
+
+      const selected = await p.select({
+        message: `Select commits to cherry-pick (Page ${currentPage + 1}/${totalPages}):`,
+        options: options.filter(opt => opt.value !== 'nav-separator')
+      }) as string | symbol;
+
+      if (p.isCancel(selected) || selected === 'cancel') {
+        return [];
+      }
+
+      if (typeof selected === 'string') {
+        if (selected === 'prev-page') {
+          currentPage = Math.max(0, currentPage - 1);
+          continue;
+        }
+        if (selected === 'next-page') {
+          currentPage = Math.min(totalPages - 1, currentPage + 1);
+          continue;
+        }
+        if (selected === 'confirm-selection') {
+          return selectedCommits;
+        }
+
+        // Toggle commit selection
+        const commit = commits.find(c => c.hash === selected);
+        if (commit) {
+          const existingIndex = selectedCommits.findIndex(s => s.hash === commit.hash);
+          if (existingIndex >= 0) {
+            selectedCommits.splice(existingIndex, 1);
+            p.log.info(`Removed: ${commit.shortHash}`);
+          } else {
+            selectedCommits.push(commit);
+            p.log.info(`Added: ${commit.shortHash}`);
+          }
+        }
+      }
     }
+  }
 
-    return multiSelect as CommitInfo[];
+  private async selectCommits(commits: CommitInfo[]): Promise<CommitInfo[]> {
+    // Use pagination for better UX with large commit lists
+    return this.selectCommitsWithPagination(commits);
   }
 
   private async selectBranch(currentBranch: string): Promise<string | null> {
@@ -198,7 +261,7 @@ export class CherryPickCommand implements GitCommand {
     } else {
       // Interactive mode
       let sourceBranch = options.branch;
-      
+
       if (!sourceBranch) {
         sourceBranch = await this.selectBranch(currentBranch);
         if (!sourceBranch) {
@@ -209,7 +272,7 @@ export class CherryPickCommand implements GitCommand {
 
       p.log.info(`Getting commits from branch: ${sourceBranch}`);
       commitsToPickFrom = await this.getCommitsFromBranch(sourceBranch);
-      
+
       if (commitsToPickFrom.length === 0) {
         p.log.error(`No commits found in branch: ${sourceBranch}`);
         return { success: false, stdout: '', stderr: 'No commits found', exitCode: 1 };
@@ -264,15 +327,15 @@ export class CherryPickCommand implements GitCommand {
 
     for (const commit of selectedCommits) {
       p.log.info(`Cherry-picking: ${commit.shortHash} - ${commit.subject}`);
-      
+
       const pickResult = await this.git.execute('cherry-pick', [commit.hash]);
-      
+
       if (pickResult.success) {
         successCount++;
         p.log.success(`✅ ${commit.shortHash} applied successfully`);
       } else {
         failedCommit = commit;
-        
+
         // Check if it's a conflict
         if (pickResult.stderr?.includes('conflict') || pickResult.stderr?.includes('CONFLICT')) {
           p.log.warning(`⚠️ Conflicts in ${commit.shortHash}`);
@@ -281,7 +344,7 @@ export class CherryPickCommand implements GitCommand {
           p.log.info('  gitnoob cherry-pick continue');
           p.log.info('Or to abort:');
           p.log.info('  gitnoob cherry-pick abort');
-          
+
           return {
             success: false,
             stdout: `${successCount} commits applied, conflicts in ${commit.shortHash}`,
@@ -310,7 +373,7 @@ export class CherryPickCommand implements GitCommand {
     p.log.info('💡 Next steps:');
     p.log.info('  • Review the changes: git log --oneline -n ' + successCount);
     p.log.info('  • Run tests to ensure everything works');
-    
+
     return {
       success: true,
       stdout: `Successfully cherry-picked ${successCount} commits`,
