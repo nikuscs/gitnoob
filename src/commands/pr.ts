@@ -232,7 +232,7 @@ export class PRCommand implements GitCommand {
       '--draft'
     ];
 
-    const createResult = await this.github.execute(ghArgs.slice(1)); // Remove 'gh' from args
+    const createResult = await this.github.execute(ghArgs);
     
     if (!createResult.success) {
       p.log.error('Failed to create PR');
