@@ -43,7 +43,7 @@ export class PRCommand implements GitCommand {
   }
 
   private generatePRTitle(type: string, commits: string[]): string {
-    if (commits.length === 0) return `${type}: Quick PR`;
+    if (commits.length === 0) return 'Quick PR';
     
     // Try to extract meaningful info from first commit
     const firstCommit = commits[0];
@@ -52,7 +52,7 @@ export class PRCommand implements GitCommand {
     // Remove existing type prefixes from commit message
     const cleanMessage = commitMessage.replace(/^(feat|fix|chore|docs|refactor|test|perf|build|ci|style):\s*/, '');
     
-    return `${type}: ${cleanMessage}`;
+    return cleanMessage || 'Quick PR';
   }
 
   private async selectTargetBranch(): Promise<string> {
@@ -176,9 +176,9 @@ export class PRCommand implements GitCommand {
     const commits = await this.getBranchCommits(targetBranch);
     const suggestedTitle = this.generatePRTitle(prType, commits);
 
-    // Get PR title
+    // Get PR title (user provides the full title, we'll add prefix automatically)
     const prTitle = await p.text({
-      message: 'PR title:',
+      message: `PR title (${prType} prefix will be added automatically):`,
       placeholder: suggestedTitle,
       defaultValue: suggestedTitle
     });
@@ -219,9 +219,12 @@ export class PRCommand implements GitCommand {
     // Create PR
     p.log.info(fastMode ? 'Creating PR for instant merge...' : 'Creating draft PR...');
     
+    // Create the final title with prefix
+    const finalTitle = `${prType}: ${prTitle as string}`;
+    
     const ghArgs = [
       'pr', 'create',
-      '--title', prTitle as string,
+      '--title', finalTitle,
       '--body', (prDescription as string) || (fastMode ? 'Fast merge PR created with gitnoob 🚀' : 'Quick PR created with gitnoob'),
       '--base', targetBranch,
       '--head', currentBranch
@@ -250,6 +253,9 @@ export class PRCommand implements GitCommand {
     // Auto-merge if requested and possible
     if (shouldAutoMerge && prNumber) {
       if (fastMode) {
+        p.log.info('Waiting for GitHub to process PR...');
+        // Give GitHub a moment to process the PR before attempting merge
+        await new Promise(resolve => setTimeout(resolve, 3000));
         p.log.info('Merging PR...');
       } else {
         p.log.info('Converting to ready for review and auto-merging...');
