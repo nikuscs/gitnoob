@@ -34,19 +34,21 @@ export class GitOperations {
   }
 
   async getStatus(): Promise<GitStatus> {
-    const [workingTree, staged] = await Promise.all([
+    const [workingTree, staged, untracked] = await Promise.all([
       this.execute('diff-index', ['--quiet', 'HEAD', '--']),
-      this.execute('diff', ['--cached', '--quiet'])
+      this.execute('diff', ['--cached', '--quiet']),
+      this.execute('ls-files', ['--others', '--exclude-standard'])
     ]);
 
     const hasUncommittedChanges = !workingTree.success;
     const hasStagedChanges = !staged.success;
+    const hasUntrackedFiles = untracked.success && untracked.stdout.trim() !== '';
 
     return {
       hasUncommittedChanges,
       hasStagedChanges,
-      hasUntrackedFiles: false,
-      hasChanges: hasUncommittedChanges || hasStagedChanges
+      hasUntrackedFiles,
+      hasChanges: hasUncommittedChanges || hasStagedChanges || hasUntrackedFiles
     };
   }
 

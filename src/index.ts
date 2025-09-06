@@ -11,7 +11,8 @@ import {
   TimeTravelCommand,
   PatchCommand,
   ApplyCommand,
-  CherryPickCommand
+  CherryPickCommand,
+  PRCommand
 } from './commands/index';
 import type { GitCommand } from './core/types';
 import * as p from '@clack/prompts';
@@ -36,7 +37,8 @@ class GitWorkflow {
       ['time-travel', new TimeTravelCommand()],
       ['patch', new PatchCommand()],
       ['apply', new ApplyCommand()],
-      ['cherry-pick', new CherryPickCommand()]
+      ['cherry-pick', new CherryPickCommand()],
+      ['pr', new PRCommand()]
     ]);
   }
 
@@ -76,6 +78,8 @@ Commands:
                         from <branch>: Cherry-pick from specific branch
                         continue: Continue after resolving conflicts
                         abort: Abort cherry-pick operation
+  pr                    🚀 Create a draft Pull Request with smart defaults
+                        Auto-detects conflicts and offers instant merge
   help                  Show this help message
 
 Examples:
@@ -104,6 +108,7 @@ Examples:
   gitnoob cherry-pick from feature-branch
   gitnoob cherry-pick abc123 def456
   gitnoob cherry-pick continue
+  gitnoob pr
 
 Features:
   • Automatic stash management during branch switching

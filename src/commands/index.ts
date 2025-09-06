@@ -9,3 +9,4 @@ export { TimeTravelCommand } from './time-travel';
 export { PatchCommand } from './patch';
 export { ApplyCommand } from './apply';
 export { CherryPickCommand } from './cherry-pick';
+export { PRCommand } from './pr';
