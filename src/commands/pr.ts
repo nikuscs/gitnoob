@@ -93,14 +93,12 @@ export class PRCommand implements GitCommand {
     return selectedBranch as string;
   }
 
-  private async checkForConflicts(targetBranch: string): Promise<boolean> {
-    // Check if we can merge without conflicts
-    const result = await this.git.execute('git', ['merge-tree', `origin/${targetBranch}`, 'HEAD']);
-    return result.success && !result.stdout.includes('<<<<<<<');
-  }
 
   async execute(args: string[]): Promise<GitResult> {
-    p.intro('🚀 Creating a Pull Request');
+    const fastMode = args.includes('--fast');
+    const cleanArgs = args.filter(arg => arg !== '--fast');
+    
+    p.intro(fastMode ? '⚡ Fast PR & Merge' : '🚀 Creating a Pull Request');
 
     // Pre-flight checks
     if (!(await this.git.isGitRepo())) {
@@ -126,17 +124,13 @@ export class PRCommand implements GitCommand {
     const status = await this.git.getStatus();
     if (status.hasChanges) {
       p.log.error('You have uncommitted changes');
-      p.log.info('Please commit or stash your changes before creating a PR');
+      p.log.info(fastMode ? 'Please commit or stash your changes before fast merge' : 'Please commit or stash your changes before creating a PR');
       process.exit(1);
     }
 
     // Push current branch if needed
     p.log.info('Pushing current branch...');
-    p.log.info(`Command: git push -u origin ${currentBranch}`);
     const pushResult = await this.git.execute('push', ['-u', 'origin', currentBranch]);
-    p.log.info(`Push result: success=${pushResult.success}, exitCode=${pushResult.exitCode}`);
-    p.log.info(`Push stdout: ${pushResult.stdout}`);
-    p.log.info(`Push stderr: ${pushResult.stderr}`);
     if (!pushResult.success) {
       p.log.error('Failed to push branch');
       p.log.error(pushResult.stderr || pushResult.stdout);
@@ -205,13 +199,15 @@ export class PRCommand implements GitCommand {
       return { success: false, stdout: '', stderr: 'Operation cancelled', exitCode: 1 };
     }
 
-    // Check for conflicts
-    const hasConflicts = !(await this.checkForConflicts(targetBranch));
-    let shouldAutoMerge = false;
+    // In fast mode, always attempt to auto-merge and let GitHub handle conflicts
+    let shouldAutoMerge = fastMode;
 
-    if (!hasConflicts) {
+    if (fastMode) {
+      p.log.info('🚀 Fast mode: Creating PR and attempting instant merge...');
+    } else {
+      // In regular mode, ask user if they want to auto-merge
       shouldAutoMerge = await p.confirm({
-        message: '✨ No conflicts detected! Auto-merge after creating PR?',
+        message: 'Auto-merge after creating PR?',
         initialValue: false
       });
 
@@ -220,17 +216,21 @@ export class PRCommand implements GitCommand {
       }
     }
 
-    // Create PR (always as draft initially)
-    p.log.info('Creating draft PR...');
+    // Create PR
+    p.log.info(fastMode ? 'Creating PR for instant merge...' : 'Creating draft PR...');
     
     const ghArgs = [
       'pr', 'create',
       '--title', prTitle as string,
-      '--body', (prDescription as string) || 'Quick PR created with gitnoob',
+      '--body', (prDescription as string) || (fastMode ? 'Fast merge PR created with gitnoob 🚀' : 'Quick PR created with gitnoob'),
       '--base', targetBranch,
-      '--head', currentBranch,
-      '--draft'
+      '--head', currentBranch
     ];
+    
+    // Only add draft flag if not in fast mode
+    if (!fastMode) {
+      ghArgs.push('--draft');
+    }
 
     const createResult = await this.github.execute(ghArgs);
     
@@ -244,24 +244,34 @@ export class PRCommand implements GitCommand {
     const prMatch = createResult.stdout.match(/\/pull\/(\d+)/);
     const prNumber = prMatch ? prMatch[1] : null;
 
-    p.log.success('Draft PR created successfully!');
+    p.log.success(fastMode ? 'PR created successfully!' : 'Draft PR created successfully!');
     p.log.info(`PR URL: ${createResult.stdout.trim()}`);
 
     // Auto-merge if requested and possible
     if (shouldAutoMerge && prNumber) {
-      p.log.info('Converting to ready for review and auto-merging...');
-      
-      // Mark as ready for review
-      const readyResult = await this.github.execute(['pr', 'ready', prNumber]);
-      if (!readyResult.success) {
-        p.log.warning('Could not mark PR as ready for review');
+      if (fastMode) {
+        p.log.info('Merging PR...');
       } else {
-        // Attempt auto-merge
-        const mergeResult = await this.github.execute(['pr', 'merge', prNumber, '--squash', '--auto']);
-        if (mergeResult.success) {
-          p.log.success('🎉 PR auto-merged successfully!');
-        } else {
-          p.log.warning('Auto-merge failed, PR is ready for manual review');
+        p.log.info('Converting to ready for review and auto-merging...');
+        // Mark as ready for review (only needed for draft PRs)
+        const readyResult = await this.github.execute(['pr', 'ready', prNumber]);
+        if (!readyResult.success) {
+          p.log.warning('Could not mark PR as ready for review');
+          return { success: true, stdout: createResult.stdout, stderr: '', exitCode: 0 };
+        }
+      }
+      
+      // Attempt auto-merge
+      const mergeResult = await this.github.execute(['pr', 'merge', prNumber, '--squash', '--auto']);
+      if (mergeResult.success) {
+        p.log.success('🎉 PR merged successfully!');
+        if (fastMode) {
+          p.log.info('You can now delete the feature branch if desired');
+        }
+      } else {
+        p.log.warning(fastMode ? 'Auto-merge failed (possibly due to conflicts), but PR is created and ready for manual merge' : 'Auto-merge failed, PR is ready for manual review');
+        if (fastMode) {
+          p.log.info('Check the PR URL above - GitHub will show if there are conflicts to resolve');
         }
       }
     }

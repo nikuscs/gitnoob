@@ -12,7 +12,8 @@ import {
   PatchCommand,
   ApplyCommand,
   CherryPickCommand,
-  PRCommand
+  PRCommand,
+  PRFastCommand
 } from './commands/index';
 import type { GitCommand } from './core/types';
 import * as p from '@clack/prompts';
@@ -38,7 +39,8 @@ class GitWorkflow {
       ['patch', new PatchCommand()],
       ['apply', new ApplyCommand()],
       ['cherry-pick', new CherryPickCommand()],
-      ['pr', new PRCommand()]
+      ['pr', new PRCommand()],
+      ['pr-fast', new PRFastCommand()]
     ]);
   }
 
@@ -80,6 +82,8 @@ Commands:
                         abort: Abort cherry-pick operation
   pr                    🚀 Create a draft Pull Request with smart defaults
                         Auto-detects conflicts and offers instant merge
+  pr-fast               ⚡ Create & instantly merge PR (aborts if conflicts)
+                        Fast track for clean, conflict-free changes
   help                  Show this help message
 
 Examples:
