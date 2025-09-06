@@ -94,9 +94,29 @@ export class PRCommand implements GitCommand {
   }
 
   private async checkForConflicts(targetBranch: string): Promise<boolean> {
-    // Check if we can merge without conflicts
-    const result = await this.git.execute('git', ['merge-tree', `origin/${targetBranch}`, 'HEAD']);
-    return result.success && !result.stdout.includes('<<<<<<<');
+    // Check if we can merge without conflicts using merge-tree
+    const result = await this.git.execute('merge-tree', [`origin/${targetBranch}`, 'HEAD']);
+    
+    // DEBUG: Let's see what merge-tree returns
+    console.log('DEBUG merge-tree result:', {
+      success: result.success,
+      exitCode: result.exitCode,
+      stdout: result.stdout,
+      stderr: result.stderr
+    });
+    
+    // If merge-tree fails or has conflict markers, there are conflicts
+    if (!result.success) {
+      return false; // Command failed, assume conflicts
+    }
+    
+    // Check for conflict markers in the output
+    const hasConflictMarkers = result.stdout.includes('<<<<<<<') || 
+                              result.stdout.includes('=======') || 
+                              result.stdout.includes('>>>>>>>');
+    
+    // No conflicts if no conflict markers found
+    return !hasConflictMarkers;
   }
 
   async execute(args: string[]): Promise<GitResult> {
