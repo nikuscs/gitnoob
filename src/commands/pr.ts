@@ -93,31 +93,6 @@ export class PRCommand implements GitCommand {
     return selectedBranch as string;
   }
 
-  private async checkForConflicts(targetBranch: string): Promise<boolean> {
-    // Check if we can merge without conflicts using merge-tree
-    const result = await this.git.execute('merge-tree', [`origin/${targetBranch}`, 'HEAD']);
-    
-    // DEBUG: Let's see what merge-tree returns
-    console.log('DEBUG merge-tree result:', {
-      success: result.success,
-      exitCode: result.exitCode,
-      stdout: result.stdout,
-      stderr: result.stderr
-    });
-    
-    // If merge-tree fails or has conflict markers, there are conflicts
-    if (!result.success) {
-      return false; // Command failed, assume conflicts
-    }
-    
-    // Check for conflict markers in the output
-    const hasConflictMarkers = result.stdout.includes('<<<<<<<') || 
-                              result.stdout.includes('=======') || 
-                              result.stdout.includes('>>>>>>>');
-    
-    // No conflicts if no conflict markers found
-    return !hasConflictMarkers;
-  }
 
   async execute(args: string[]): Promise<GitResult> {
     const fastMode = args.includes('--fast');
@@ -224,21 +199,15 @@ export class PRCommand implements GitCommand {
       return { success: false, stdout: '', stderr: 'Operation cancelled', exitCode: 1 };
     }
 
-    // Check for conflicts
-    const hasConflicts = !(await this.checkForConflicts(targetBranch));
-    let shouldAutoMerge = fastMode; // Always auto-merge in fast mode
-
-    if (fastMode && hasConflicts) {
-      p.log.error('⚠️  Conflicts detected! Fast merge aborted.');
-      p.log.info('Use regular `gitnoob pr` to create a draft PR for manual review');
-      process.exit(1);
-    }
+    // In fast mode, always attempt to auto-merge and let GitHub handle conflicts
+    let shouldAutoMerge = fastMode;
 
     if (fastMode) {
-      p.log.success('✅ No conflicts detected, proceeding with fast merge!');
-    } else if (!hasConflicts) {
+      p.log.info('🚀 Fast mode: Creating PR and attempting instant merge...');
+    } else {
+      // In regular mode, ask user if they want to auto-merge
       shouldAutoMerge = await p.confirm({
-        message: '✨ No conflicts detected! Auto-merge after creating PR?',
+        message: 'Auto-merge after creating PR?',
         initialValue: false
       });
 
@@ -300,9 +269,9 @@ export class PRCommand implements GitCommand {
           p.log.info('You can now delete the feature branch if desired');
         }
       } else {
-        p.log.warning(fastMode ? 'Auto-merge failed, but PR is created and ready for manual merge' : 'Auto-merge failed, PR is ready for manual review');
+        p.log.warning(fastMode ? 'Auto-merge failed (possibly due to conflicts), but PR is created and ready for manual merge' : 'Auto-merge failed, PR is ready for manual review');
         if (fastMode) {
-          p.log.info('Check the PR URL above for more details');
+          p.log.info('Check the PR URL above - GitHub will show if there are conflicts to resolve');
         }
       }
     }
