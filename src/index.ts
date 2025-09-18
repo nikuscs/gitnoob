@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 
-import { 
-  CheckoutCommand, 
-  PruneCommand, 
-  UpdateCommand, 
+import {
+  CheckoutCommand,
+  PruneCommand,
+  UpdateCommand,
   ResetHistoryCommand,
   UpdateAllCommand,
   ResetCommand,
@@ -13,7 +13,8 @@ import {
   ApplyCommand,
   CherryPickCommand,
   PRCommand,
-  PRFastCommand
+  PRFastCommand,
+  ForcePushCommand
 } from './commands/index';
 import type { GitCommand } from './core/types';
 import * as p from '@clack/prompts';
@@ -40,7 +41,8 @@ class GitWorkflow {
       ['apply', new ApplyCommand()],
       ['cherry-pick', new CherryPickCommand()],
       ['pr', new PRCommand()],
-      ['pr-fast', new PRFastCommand()]
+      ['pr-fast', new PRFastCommand()],
+      ['force-push', new ForcePushCommand()]
     ]);
   }
 
@@ -84,6 +86,8 @@ Commands:
                         Auto-detects conflicts and offers instant merge
   pr-fast               ⚡ Create & instantly merge PR (aborts if conflicts)
                         Fast track for clean, conflict-free changes
+  force-push [branch]   💥 Force push current branch to overwrite target branch
+                        ⚠️ DANGER: Overwrites target branch with current branch
   help                  Show this help message
 
 Examples:
@@ -113,6 +117,7 @@ Examples:
   gitnoob cherry-pick abc123 def456
   gitnoob cherry-pick continue
   gitnoob pr
+  gitnoob force-push main
 
 Features:
   • Automatic stash management during branch switching
