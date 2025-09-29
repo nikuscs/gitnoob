@@ -235,6 +235,43 @@ export class GitOperations {
     return branches;
   }
 
+  async getLocalBranchesWithoutUpstream(): Promise<string[]> {
+    const result = await this.execute('branch', ['--format=%(refname:short)@{%(upstream:short)}']);
+    if (!result.success) return [];
+
+    const branches: string[] = [];
+    const lines = result.stdout.split('\n').filter(line => line.trim());
+
+    for (const line of lines) {
+      const parts = line.split('@');
+      if (parts.length === 1 || parts[1] === '' || parts[1] === '{}') {
+        branches.push(parts[0]);
+      }
+    }
+
+    return branches;
+  }
+
+  async getBranchesWithGoneUpstream(): Promise<Array<{ local: string, upstream: string }>> {
+    const result = await this.execute('branch', ['-vv']);
+    if (!result.success) return [];
+
+    const branches: Array<{ local: string, upstream: string }> = [];
+    const lines = result.stdout.split('\n').filter(line => line.trim());
+
+    for (const line of lines) {
+      const match = line.match(/^\s*(\*\s+)?(\S+)\s+\w+\s+\[([^:]+):\s*gone\]/);
+      if (match) {
+        branches.push({
+          local: match[2],
+          upstream: match[3]
+        });
+      }
+    }
+
+    return branches;
+  }
+
   async isRemoteAvailable(remote = 'origin'): Promise<boolean> {
     const result = await this.execute('remote', ['-v']);
     if (!result.success) return false;
