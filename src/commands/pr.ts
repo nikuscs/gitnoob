@@ -271,8 +271,21 @@ export class PRCommand implements GitCommand {
       const mergeResult = await this.github.execute(['pr', 'merge', prNumber, '--squash', '--auto']);
       if (mergeResult.success) {
         p.log.success('🎉 PR merged successfully!');
+
+        // Auto-checkout target branch after successful merge
         if (fastMode) {
-          p.log.info('You can now delete the feature branch if desired');
+          try {
+            p.log.info(`Checking out ${targetBranch}...`);
+            const checkoutResult = await this.git.checkout(targetBranch);
+            if (checkoutResult.success) {
+              p.log.success(`Switched to ${targetBranch}`);
+              p.log.info('You can now delete the feature branch if desired');
+            } else {
+              p.log.warning(`Could not checkout ${targetBranch}: ${checkoutResult.stderr}`);
+            }
+          } catch (error) {
+            p.log.warning(`Could not checkout ${targetBranch}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
         }
       } else {
         p.log.warning(fastMode ? 'Auto-merge failed (possibly due to conflicts), but PR is created and ready for manual merge' : 'Auto-merge failed, PR is ready for manual review');

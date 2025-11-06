@@ -14,7 +14,8 @@ import {
   CherryPickCommand,
   PRCommand,
   PRFastCommand,
-  ForcePushCommand
+  ForcePushCommand,
+  ClearWorkflowsCommand
 } from './commands/index';
 import type { GitCommand } from './core/types';
 import * as p from '@clack/prompts';
@@ -42,7 +43,8 @@ class GitWorkflow {
       ['cherry-pick', new CherryPickCommand()],
       ['pr', new PRCommand()],
       ['pr-fast', new PRFastCommand()],
-      ['force-push', new ForcePushCommand()]
+      ['force-push', new ForcePushCommand()],
+      ['clear-workflows', new ClearWorkflowsCommand()]
     ]);
   }
 
@@ -88,6 +90,8 @@ Commands:
                         Fast track for clean, conflict-free changes
   force-push [branch]   💥 Force push current branch to overwrite target branch
                         ⚠️ DANGER: Overwrites target branch with current branch
+  clear-workflows       🧹 Delete all GitHub Actions workflow runs
+                        ⚠️ Requires confirmation, cannot be undone
   help                  Show this help message
 
 Examples:
@@ -118,6 +122,7 @@ Examples:
   gitnoob cherry-pick continue
   gitnoob pr
   gitnoob force-push main
+  gitnoob clear-workflows
 
 Features:
   • Automatic stash management during branch switching

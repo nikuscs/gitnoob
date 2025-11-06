@@ -12,3 +12,4 @@ export { CherryPickCommand } from './cherry-pick';
 export { PRCommand } from './pr';
 export { PRFastCommand } from './pr-fast';
 export { ForcePushCommand } from './force-push';
+export { ClearWorkflowsCommand } from './clear-workflows';
