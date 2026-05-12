@@ -1,0 +1,6 @@
+/.github/ @nikuscs
+/package.json @nikuscs
+/bun.lock @nikuscs
+/tsconfig.json @nikuscs
+/src/ @nikuscs
+/.cursor/ @nikuscs
